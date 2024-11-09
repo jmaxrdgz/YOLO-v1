@@ -1,71 +1,96 @@
 import torch
+import torch.nn as nn
 
-class YOLOModel(torch.nn.module):
-
-    def __init__(self):
-        super(YOLOModel, self).__init__()
-
-        self.conv1 = torch.nn.Conv2d(3, 64, 7)
-        self.maxPool1 = torch.nn.MaxPool2d(112, 2)
-
-        self.conv2 = torch.nn.Conv2d(64, 192, 3)
-        self.maxPool2 = torch.nn.MaxPool2d(56, 2)
-
-        self.conv3 = torch.nn.Conv2d(192, 128, 1)
-        self.conv4 = torch.nn.Conv2d(128, 256, 3)
-        self.conv5 = torch.nn.Conv2d(256, 256, 1)
-        self.conv6 = torch.nn.Conv2d(256, 512, 3)
-        self.maxPool3 = torch.nn.MaxPool2d(28, 2)
-
-        self.conv7 = torch.nn.Conv2d(512, 256, 1)
-        self.conv8 = torch.nn.Conv2d(256, 512, 3)
-        self.conv9 = torch.nn.Conv2d(512, 512, 1)
-        self.conv10 = torch.nn.Conv2d(512, 1024, 3)
-        self.maxPool4 = torch.nn.MaxPool2d(14, 2)
-
-        self.conv11 = torch.nn.Conv2d(1024, 512, 1)
-        self.conv12 = torch.nn.Conv2d(512, 1024, 3)
-        self.conv13 = torch.nn.Conv2d(1024, 1024, 3)
-        self.maxPool5 = torch.nn.MaxPool2d(7, 3)
-
-        self.conv14 = torch.nn.Conv2d(1024, 1024, 3)
-        self.conv15 = torch.nn.Conv2d(1024, 1024, 3)
-
-        self.connected1 = torch.nn.Linear(1024, 4096)
-        self.activation1 = torch.nn.ReLU()
-
-        self.connected2 = torch.nn.Linear(4096, 7 * 7 * 30)
-        self.ectivation2 = torch.nn.ReLU()
+'''
+Architecture configuration of the conv layers part of the network
+Also called "darknet"
+'''
+darknet_config = [
+    # kernel_size, filters, stride, padding
+    (7, 64, 2, 7),
+    "M",
+    (3, 192, 1, 1),
+    "M",
+    (1, 128, 1, 0),
+    (3, 256, 1, 1),
+    (1, 256, 1, 0),
+    (3, 512, 1, 1),
+    "M",
+    # Last index is number of repetition
+    [(1, 256, 1, 0), (3, 512, 1, 1), 4],
+    (1, 512, 1, 0),
+    (3, 1024, 1, 1),
+    "M",
+    [(1, 512, 1, 0), (3, 1024, 1, 1), 2],
+    (3, 1024, 1, 1),
+    (3, 1024, 2, 1),
+    (3, 1024, 1, 1),
+    (3, 1024, 1, 1),
+]
     
+class CNN_Block(nn.Module):
+    def __init__(self, in_channels, out_channels, **kwargs):
+        super(CNN_Block, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, **kwargs)
+        self.activation = nn.LeakyReLU(0.1)
+
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.maxPool1(x)
+        return self.activation(self.conv(x))
+    
+class YOLO_v1(nn.Module):
+    '''
+    24 convolutional layers (defined in darknet_config) followed by 2 fully connected layers
+    '''
+    def __init__(self, in_channels=3, **kwargs):
+        super(YOLO_v1, self).__init__()
+        self.in_channels = in_channels
+        self.darknet_config = darknet_config
+        self.darknet = self._create_layers(self.darknet_config)
+        self.fully_connected = self._create_fully_connected(**kwargs)
 
-        x = self.conv2(x)
-        x = self.maxPool2(x)
+    def forward(self, x):
+        x = self.darknet(x)
+        return self.fully_connected(torch.flatten(x, start_dim=1))
+    
+    def _create_layers(self, config):
+        layers = []
+        in_channels = self.in_channels
 
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = self.conv5(x)
-        x = self.conv6(x)
-        x = self.maxPool3(x)
+        for layer in config:
+            if isinstance(layer, tuple):
+                kernel_size, filters, stride, padding = layer
+                layers.append(CNN_Block(in_channels, filters, kernel_size=kernel_size, stride=stride, padding=padding))
+                in_channels = filters
 
-        x = self.conv7(x)
-        x = self.conv8(x)
-        x = self.conv9(x)
-        x = self.conv10(x)
-        x = self.maxPool4(x)
+            elif isinstance(layer, str) and layer == "M":
+                layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
 
-        x = self.conv11(x)
-        x = self.conv12(x)
-        x = self.conv13(x)
-        x = self.maxPool5(x)
+            elif isinstance(layer, list):
+                for _ in range(layer[-1]):
+                    for sub_layer in layer[:-1]:
+                        kernel_size, filters, stride, padding = sub_layer
+                        layers.append(CNN_Block(in_channels, filters, kernel_size=kernel_size, stride=stride, padding=padding))
+                        in_channels = filters
 
-        x = self.conv15(x)
-        x = self.conv14(x)
+        return nn.Sequential(*layers)
+    
+    def _create_fully_connected(self, split_size, num_boxes, num_classes):
+        '''
+        Image is divided into an S x S
+        each grid cell predicts B bounding boxes, confidence for those boxes
+        C class probabilities
+        encoded as an S x S x (B x 5 + C) tensor.
+        '''
+        S, B, C = split_size, num_boxes, num_classes
+        return nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(S * S * 1024, 4096),
+            nn.LeakyReLU(0.1),
+            nn.Linear(4096, S * S * (B * 5 + C)), #
+            nn.LeakyReLU(0.1)
+        )
 
-        x = self.connected1(x)
-        x = self.activation1(x)
-
-        x = self.connected2(x)
-        x = self.ectivation2(x)
+def test(self): 
+    model = YOLO_v1(split_size=7, num_boxes=2, num_classes=20)
+    x = torch.rand((2, 3, 448, 448))
+    print(model(x).shape) # Outputs torch.Size([2, 1470]) : 7x7x30 = 1470 so we are good !
