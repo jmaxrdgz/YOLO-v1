@@ -39,7 +39,7 @@ class CNN_Block(nn.Module):
     
 class YOLO_v1(nn.Module):
     '''
-    24 convolutional layers (defined in darknet_config) followed by 2 fully connected layers
+    "24 convolutional layers followed by 2 fully connected layers"
     '''
     def __init__(self, in_channels=3, **kwargs):
         super(YOLO_v1, self).__init__()
@@ -76,10 +76,10 @@ class YOLO_v1(nn.Module):
     
     def _create_fully_connected(self, split_size, num_boxes, num_classes):
         '''
-        Image is divided into an S x S
+        "Image is divided into an S x S
         each grid cell predicts B bounding boxes, confidence for those boxes
         C class probabilities
-        encoded as an S x S x (B x 5 + C) tensor.
+        encoded as an S x S x (B x 5 + C) tensor."
         '''
         S, B, C = split_size, num_boxes, num_classes
         return nn.Sequential(
@@ -94,5 +94,3 @@ def test():
     model = YOLO_v1(split_size=7, num_boxes=2, num_classes=20)
     x = torch.rand((2, 3, 448, 448))
     print(model(x).shape) # Outputs torch.Size([2, 1470]) : 7x7x30 = 1470 so we are good !
-
-test()
