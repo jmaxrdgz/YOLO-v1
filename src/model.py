@@ -90,7 +90,9 @@ class YOLO_v1(nn.Module):
             nn.LeakyReLU(0.1)
         )
 
-def test(self): 
+def test(): 
     model = YOLO_v1(split_size=7, num_boxes=2, num_classes=20)
     x = torch.rand((2, 3, 448, 448))
     print(model(x).shape) # Outputs torch.Size([2, 1470]) : 7x7x30 = 1470 so we are good !
+
+test()
