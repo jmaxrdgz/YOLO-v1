@@ -117,14 +117,11 @@ class Loss(nn.Module):
 
         return loss
     
-
-
-S, B, C = 7, 2, 20  # Grid size, number of boxes, number of classes
-batch_size = 4
-
-prediction = torch.rand((batch_size, S * S * (C + B * 5)))
-
-target = torch.rand((batch_size, S, S, C + 5))
-
-loss_fn = Loss(S=S, B=B, C=C)
-loss = loss_fn.forward(prediction, target)
+def test():
+    S, B, C = 7, 2, 20  # Grid size, number of boxes, number of classes
+    batch_size = 4
+    prediction = torch.rand((batch_size, S * S * (C + B * 5)))
+    target = torch.rand((batch_size, S, S, C + 5))
+    loss_fn = Loss(S=S, B=B, C=C)
+    loss = loss_fn.forward(prediction, target)
+    print(loss)
