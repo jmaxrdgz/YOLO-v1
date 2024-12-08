@@ -32,56 +32,99 @@ class Loss(nn.Module):
         """
         prediction = prediction.reshape(-1, self.S, self.S, self.B * 5 + self.C)
         # prediction[..., :] of shape (20 classes + box1(c, x, y, w, h) + box2(c, x, y, w, h))
-        # target only has one target box per cell
+        # target only has one target box per cell (important !)
         iou_1 = intersection_over_union_(prediction[..., 21:25], target[..., 21:25])
         iou_2 = intersection_over_union_(prediction[..., 26:30], target[..., 21:25])
-        _, best_box = torch.max(torch.stack([iou_1, iou_2], dim=0), dim=0)
-        exist_box = target[..., 20].unsqueeze(3)
+        _, best_box_i = torch.max(torch.stack([iou_1, iou_2], dim=0), dim=0) # (BATCH_SIZE, S, S, 1)
+        exist_box = target[..., 20].unsqueeze(3) # (BATCH_SIZE, S, S, 1)
 
         #===============#
         #    BOX LOSS   #
         #===============#
-        x_pred = prediction[..., (self.C + best_box * 5 + 1):(self.C + best_box * 5 + 2)]
-        y_pred = prediction[..., (self.C + best_box * 5 + 2):(self.C + best_box * 5 + 3)]
-        x_targ = target[..., 21:22]
-        y_targ = target[..., 22:23]
-        x_loss = self.loss(torch.flatten(exist_box * x_pred, end_dim=-2), torch.flatten(exist_box * x_targ, end_dim=-2))
-        y_loss = self.loss(torch.flatten(exist_box * y_pred, end_dim=-2), torch.flatten(exist_box * y_targ, end_dim=-2))
-        center_coord_loss = self.lambda_coord * (x_loss + y_loss)
+        best_box_coord = (1 - best_box_i) * prediction[..., 21:25] + best_box_i * prediction[..., 26:30] # (BATCH_SIZE, S, S, 4)
+        target_box_coord = target[..., 21:25] # (BATCH_SIZE, S, S, 4)
+        box_center_loss = (
+            self.loss(
+                torch.flatten(exist_box * best_box_coord[..., 0:1], end_dim=-2),
+                torch.flatten(exist_box * target_box_coord[..., 0:1], end_dim=-2)
+            ) 
+            +
+            self.loss(
+                torch.flatten(exist_box * best_box_coord[..., 1:2], end_dim=-2),
+                torch.flatten(exist_box * target_box_coord[..., 1:2], end_dim=-2)
+            )
+        )
 
-        w_pred = prediction[..., (self.C + best_box * 5 + 3):(self.C + best_box * 5 + 4)]
-        h_pred = prediction[..., (self.C + best_box * 5 + 4):(self.C + best_box * 5 + 5)]
-        w_targ = target[..., 23:24]
-        h_targ = target[..., 24:25]
-        w_pred = torch.sqrt(torch.abs(w_pred) + 1e-6)
-        h_pred = torch.sqrt(torch.abs(h_pred) + 1e-6)
-        w_targ = torch.sqrt(w_targ)
-        h_targ = torch.sqrt(h_targ)
-        w_loss = self.loss(torch.flatten(exist_box * w_pred, end_dim=-2), torch.flatten(exist_box * w_targ, end_dim=-2))
-        h_loss = self.loss(torch.flatten(exist_box * h_pred, end_dim=-2), torch.flatten(exist_box * h_targ, end_dim=-2))
-        box_dim_loss = self.lambda_coord * (w_loss + h_loss)
+        box_dim_loss = (
+            self.loss(
+                torch.flatten(exist_box * 
+                              torch.sign(best_box_coord[..., 2:3]) * 
+                              torch.sqrt(torch.abs(best_box_coord[..., 2:3]) + 1e-6)),
+                torch.flatten(exist_box * torch.sqrt(target_box_coord[..., 2:3] + 1e-6))
+            )
+            +
+            self.loss(
+                torch.flatten(exist_box * 
+                              torch.sign(best_box_coord[..., 2:3]) *
+                              torch.sqrt(torch.abs(best_box_coord[..., 3:4]) + 1e-6)),
+                torch.flatten(exist_box * torch.sqrt(target_box_coord[..., 3:4] + 1e-6))
+            )
+        )
 
-        box_loss = box_dim_loss + center_coord_loss
+        box_loss = self.lambda_coord * (box_center_loss + box_dim_loss) # Scalar
 
         #================#
         #    PROB LOSS   #
         #================#
-        prob_pred = prediction[..., (self.C + best_box * 5):(self.C + best_box * 5 + 1)]
-        prob_targ = target[..., 20:21]
-        obj_prob_loss = self.loss(torch.flatten(exist_box * prob_pred), torch.flatten(exist_box * prob_targ))
+        best_box_prob = (1 - best_box_i) * prediction[..., 20:21] + best_box_i * prediction[..., 25:26]
+        target_prob = target[..., 20:21]
+        obj_prob_loss = (
+            self.loss(
+                torch.flatten(exist_box * best_box_prob, start_dim=1), 
+                torch.flatten(exist_box * target_prob, start_dim=1)
+                )
+        )
 
-        total_prob_pred = prediction[..., 20:21] + prediction[..., 25:26]
-        noobj_prob_loss = self.lambda_noobj * self.loss(torch.flatten((1 - exist_box) * total_prob_pred, start_dim=1), torch.flatten((1 - exist_box) * prob_targ, start_dim=1))
+        noobj_prob_loss = (
+            self.loss(
+                torch.flatten((1 - exist_box) * prediction[..., 20:21], start_dim=1), 
+                torch.flatten((1 - exist_box) * target_prob, start_dim=1)
+                )
+            +
+            self.loss(
+                torch.flatten((1 - exist_box) * prediction[..., 25:26], start_dim=1), 
+                torch.flatten((1 - exist_box) * target_prob, start_dim=1)
+            )
+        )
+        
+        prob_loss = obj_prob_loss + self.lambda_noobj * noobj_prob_loss
+
         #=================#
         #    CLASS LOSS   #
         #=================#
-        C_pred = prediction[..., 0:self.C]
-        C_targ = target[..., 0:self.C]
-        class_loss = self.loss(torch.flatten(exist_box * C_pred, end_dim=-2), torch.flatten(exist_box * C_targ, end_dim=-2))
+        class_pred = prediction[..., 0:20]
+        class_targ = target[..., 0:20]
+        class_loss = (
+            self.loss(
+                torch.flatten(exist_box * class_pred, end_dim=-2), 
+                torch.flatten(exist_box * class_targ, end_dim=-2))
+        )
         
         #=================#
         #    TOTAL LOSS   #
         #=================#
-        loss = box_loss + obj_prob_loss + noobj_prob_loss + class_loss
+        loss = box_loss + prob_loss + class_loss # Not normalized by batch size in the original paper
 
         return loss
+    
+
+
+S, B, C = 7, 2, 20  # Grid size, number of boxes, number of classes
+batch_size = 4
+
+prediction = torch.rand((batch_size, S * S * (C + B * 5)))
+
+target = torch.rand((batch_size, S, S, C + 5))
+
+loss_fn = Loss(S=S, B=B, C=C)
+loss = loss_fn.forward(prediction, target)
