@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from utils import intersection_over_union_
 
-class Loss(nn.module):
+class Loss(nn.Module):
     def __init__(self, S=7, B=2, C=20):
         super(Loss, self).__init__()
         self.S = S
