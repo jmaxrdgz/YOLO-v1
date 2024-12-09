@@ -1,6 +1,6 @@
 import torch
 
-def intersection_over_union_(pred_boxes, targ_boxes):
+def intersection_over_union(pred_boxes, targ_boxes):
     """
     Compute intersection over union for (x, y, w, h) coordinates
 
@@ -34,3 +34,10 @@ def intersection_over_union_(pred_boxes, targ_boxes):
 
     # 1e-6 added to avoid dividing by 0
     return intersection / (box1_area + box2_area - intersection + 1e-6)
+
+def convert_coordinates(x_cell, y_cell, x_relative, y_relative, w_cell, h_cell, S=7):
+    x = (x_cell + x_relative) / S
+    y = (y_cell + y_relative) / S
+    w = w_cell / S
+    h = h_cell / S
+    return x, y, w, h
