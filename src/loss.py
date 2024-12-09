@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils import intersection_over_union_
+from utils import intersection_over_union
 
 class Loss(nn.Module):
     def __init__(self, S=7, B=2, C=20):
@@ -33,8 +33,8 @@ class Loss(nn.Module):
         prediction = prediction.reshape(-1, self.S, self.S, self.B * 5 + self.C)
         # prediction[..., :] of shape (20 classes + box1(c, x, y, w, h) + box2(c, x, y, w, h))
         # target only has one target box per cell (important !)
-        iou_1 = intersection_over_union_(prediction[..., 21:25], target[..., 21:25])
-        iou_2 = intersection_over_union_(prediction[..., 26:30], target[..., 21:25])
+        iou_1 = intersection_over_union(prediction[..., 21:25], target[..., 21:25])
+        iou_2 = intersection_over_union(prediction[..., 26:30], target[..., 21:25])
         _, best_box_i = torch.max(torch.stack([iou_1, iou_2], dim=0), dim=0) # (BATCH_SIZE, S, S, 1)
         exist_box = target[..., 20].unsqueeze(3) # (BATCH_SIZE, S, S, 1)
 
