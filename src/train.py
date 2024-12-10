@@ -30,8 +30,8 @@ LOAD_MODEL = False
 LOAD_MODEL_FILE = ""
 SAVE_MODEL = True
 SAVE_MODEL_FILE = "checkpoint/overfit_8examples.pth.tar"
-IMG_DIR = "data/images"
-LABEL_DIR = "data/labels"
+IMG_DIR = "/content/pascalvoc-yolo/images"
+LABEL_DIR = "/content/pascalvoc-yolo/labels"
 
 torch.manual_seed(SEED)
 
@@ -85,13 +85,13 @@ def main():
     train_dataset = PascalVOCDataset(
         images_path=IMG_DIR, 
         labels_path=LABEL_DIR, 
-        csv_path='data/8examples.csv', 
+        csv_path='/content/pascalvoc-yolo/8examples.csv', 
         transform=transform
         )
     valid_dataset = PascalVOCDataset(
         images_path=IMG_DIR, 
         labels_path=LABEL_DIR, 
-        csv_path='data/test.csv', 
+        csv_path='/content/pascalvoc-yolo/test.csv', 
         transform=transform # verif si besoin de transform
         )
     
