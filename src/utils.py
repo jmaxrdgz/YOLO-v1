@@ -160,7 +160,6 @@ def mean_average_precision(
                 iou = intersection_over_union(
                     torch.tensor(detection[3:]),
                     torch.tensor(gt[3:]),
-                    box_format=box_format,
                 )
 
                 if iou > best_iou:
