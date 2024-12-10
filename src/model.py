@@ -86,6 +86,7 @@ class YOLO_v1(nn.Module):
             nn.Flatten(),
             nn.Linear(S * S * 1024, 4096),
             nn.LeakyReLU(0.1),
+            nn.Dropout(0.5),
             nn.Linear(4096, S * S * (B * 5 + C)), #
             nn.LeakyReLU(0.1)
         )
