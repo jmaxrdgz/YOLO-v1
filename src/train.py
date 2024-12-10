@@ -29,7 +29,7 @@ PIN_MEMORY = True
 LOAD_MODEL = False
 LOAD_MODEL_FILE = ""
 SAVE_MODEL = True
-SAVE_MODEL_FILE = "data/overfit_8examples.pth.tar"
+SAVE_MODEL_FILE = "checkpoint/overfit_8examples.pth.tar"
 IMG_DIR = "data/images"
 LABEL_DIR = "data/labels"
 
@@ -101,7 +101,7 @@ def main():
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
         shuffle=True,
-        drop_last=True, # à changer pour True après test sur 8
+        drop_last=False, # à changer pour True après test sur 8
     )
 
     test_loader = DataLoader(
