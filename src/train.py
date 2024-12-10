@@ -29,7 +29,7 @@ PIN_MEMORY = True
 LOAD_MODEL = False
 LOAD_MODEL_FILE = ""
 SAVE_MODEL = True
-SAVE_MODEL_FILE = "checkpoint/overfit_8examples.pth.tar"
+SAVE_MODEL_FILE = "checkpoint/overfit_100examples.pth.tar"
 IMG_DIR = "/content/pascalvoc-yolo/images"
 LABEL_DIR = "/content/pascalvoc-yolo/labels"
 
@@ -39,7 +39,7 @@ torch.manual_seed(SEED)
 #   TRANSFORMS   #
 #================#
 
-class Compose(object):
+class Compose_(object):
     def __init__(self, transforms):
         self.transforms = transforms
     
@@ -48,7 +48,7 @@ class Compose(object):
             image, bboxes = t(image), bboxes
         return image, bboxes
  
-transform = Compose([
+transform = Compose_([
     transforms.Resize((448, 448)),
     transforms.ToTensor()
 ])
@@ -85,7 +85,7 @@ def main():
     train_dataset = PascalVOCDataset(
         images_path=IMG_DIR, 
         labels_path=LABEL_DIR, 
-        csv_path='/content/pascalvoc-yolo/8examples.csv', 
+        csv_path='/content/pascalvoc-yolo/100examples.csv', 
         transform=transform
         )
     valid_dataset = PascalVOCDataset(
@@ -101,7 +101,7 @@ def main():
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
         shuffle=True,
-        drop_last=False, # à changer pour True après test sur 8
+        drop_last=True
     )
 
     test_loader = DataLoader(
@@ -110,7 +110,7 @@ def main():
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
         shuffle=False,
-        drop_last=True, # à changer pour True après test sur 8
+        drop_last=True
     )
 
     if LOAD_MODEL:
@@ -131,7 +131,7 @@ def main():
                "state_dict": model.state_dict(),
                "optimizer": optimizer.state_dict(),
            }
-        save_checkpoint(checkpoint, filename='SAVE_MODEL_FILE')
+        save_checkpoint(checkpoint, filename=SAVE_MODEL_FILE)
 
 if __name__=="__main__":
     main()

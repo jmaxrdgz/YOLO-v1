@@ -2,13 +2,14 @@ import torch
 import pandas as pd
 import os
 from PIL import Image
+import torchvision.transforms as transforms
 
 class PascalVOCDataset(torch.utils.data.Dataset):
     def __init__(self, images_path, labels_path, csv_path, S=7, B=2, C=20, transform=None):
         self.images_path = images_path
         self.labels_path = labels_path
         self.df = pd.read_csv(csv_path)
-        self.transform = transform
+        self.transform = transform or transforms.ToTensor()
         self.S = S
         self.B = B
         self.C = C
@@ -25,13 +26,13 @@ class PascalVOCDataset(torch.utils.data.Dataset):
             for line in file:
                 label_class, x, y, w, h = map(float, line.split())
                 label_class = int(label_class)
-        boxes.append([label_class, x, y, w, h])
+                boxes.append([label_class, x, y, w, h])
         boxes = torch.tensor(boxes)
 
         image = Image.open(image_path)
 
         if self.transform:
-            self.transform(image, boxes)
+            image, boxes = self.transform(image, boxes)
 
         label = torch.zeros(self.S, self.S, self.B * 5 + self.C)
         for box in boxes:

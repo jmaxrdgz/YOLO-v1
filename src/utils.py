@@ -73,8 +73,7 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
             if box[0] != chosen_box[0]
             or intersection_over_union(
                 torch.tensor(chosen_box[2:]),
-                torch.tensor(box[2:]),
-                box_format=box_format,
+                torch.tensor(box[2:])
             )
             < iou_threshold
         ]
