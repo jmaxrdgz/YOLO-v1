@@ -74,7 +74,7 @@ class YOLO_v1(nn.Module):
 
         return nn.Sequential(*layers)
     
-    def _create_fully_connected(self, split_size, num_boxes, num_classes):
+    def _create_fully_connected(self, split_size=7, num_boxes=2, num_classes=20):
         '''
         "Image is divided into an S x S
         each grid cell predicts B bounding boxes, confidence for those boxes
