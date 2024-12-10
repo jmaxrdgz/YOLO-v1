@@ -88,7 +88,7 @@ def main():
         csv_path='/content/pascalvoc-yolo/100examples.csv', 
         transform=transform
         )
-    valid_dataset = PascalVOCDataset(
+    test_dataset = PascalVOCDataset(
         images_path=IMG_DIR, 
         labels_path=LABEL_DIR, 
         csv_path='/content/pascalvoc-yolo/test.csv', 
@@ -105,7 +105,7 @@ def main():
     )
 
     test_loader = DataLoader(
-        dataset=valid_dataset,
+        dataset=test_dataset,
         batch_size=BATCH_SIZE,
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
