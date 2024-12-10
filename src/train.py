@@ -117,13 +117,34 @@ def main():
         load_checkpoint(torch.load(LOAD_MODEL_FILE), model, optimizer)
 
     for epoch in range(EPOCHS):
+        #===========#
+        #   TRAIN   #
+        #===========#
         prediction_boxes, target_boxes = get_bboxes(
             train_loader, model, iou_threshold=0.5, threshold=0.4
         )
-        mAP = mean_average_precision(
+        train_mAP = mean_average_precision(
             prediction_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint"
         )
-        print(f"Train mAP: {mAP}")
+
+        #===========#
+        #   VALID   #
+        #===========#
+        model.eval()
+        with torch.no_grad():
+            prediction_boxes, target_boxes = get_bboxes(
+                test_loader, model, iou_threshold=0.5, threshold=0.4
+            )
+            val_mAP = mean_average_precision(
+                prediction_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint"
+            )
+        model.train()
+
+        #=============#
+        #   METRICS   #
+        #=============#
+        print(f"Train mAP: {train_mAP}")
+        print(f"Validation mAP: {val_mAP}")
         train_epoch(train_loader, model, optimizer, loss_fn)
 
     if SAVE_MODEL:
