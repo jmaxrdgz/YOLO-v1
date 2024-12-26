@@ -2,6 +2,8 @@ import torch
 import torchvision.transforms as transforms
 import torch.optim as optim
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 from model import YOLO_v1
@@ -21,13 +23,13 @@ from utils import (
 SEED = 42
 LEARNING_RATE = 2e-5
 DEVICE = "cuda" if torch.cuda.is_available else "cpu"
-BATCH_SIZE = 16 # 64 IRL
+BATCH_SIZE = 16
 WEIGHT_DECAY = 0
-EPOCHS = 1000
+EPOCHS = 400
 NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = False
-LOAD_MODEL_FILE = ""
+VALID_METRICS = False
 SAVE_MODEL = True
 SAVE_MODEL_FILE = "checkpoint/overfit_100examples.pth.tar"
 IMG_DIR = "/content/pascalvoc-yolo/images"
@@ -48,7 +50,7 @@ class Compose_(object):
             image, bboxes = t(image), bboxes
         return image, bboxes
  
-transform = Compose_([
+transform = Compose_([ # \temp!/ implement data augmentation
     transforms.Resize((448, 448)),
     transforms.ToTensor()
 ])
@@ -57,19 +59,22 @@ transform = Compose_([
 #   TRAIN FUNCTION   #
 #====================#
 
-def train_epoch(train_loader, model, optimizer, loss_fn):
-    mean_loss = []
+def train_epoch(train_loader, model, optimizer, loss_fn, loss_hist):
+    losses = []
 
     for batch, (x,y) in enumerate(train_loader):
         x, y = x.to(DEVICE), y.to(DEVICE)
         out = model(x)
         loss = loss_fn(out, y)
-        mean_loss.append(loss.item())
+        losses.append(loss.item())
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
     
-    print(f'mean loss : {sum(mean_loss)/len(mean_loss)}')
+    mean_loss = sum(losses)/len(losses)
+    print(f'mean loss : {mean_loss}')
+    loss_hist.append(mean_loss)
+
 
 #==============#
 #   TRAINING   #
@@ -81,18 +86,25 @@ def main():
         model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY
         )
     
+    train_mAP_hist = []
+    valid_mAP_hist = []
+    loss_hist = []
+    
     loss_fn = Loss()
+
     train_dataset = PascalVOCDataset(
         images_path=IMG_DIR, 
         labels_path=LABEL_DIR, 
         csv_path='/content/pascalvoc-yolo/100examples.csv', 
         transform=transform
         )
-    test_dataset = PascalVOCDataset(
-        images_path=IMG_DIR, 
-        labels_path=LABEL_DIR, 
-        csv_path='/content/pascalvoc-yolo/test.csv', 
-        transform=transform # verif si besoin de transform
+    
+    if VALID_METRICS:
+        test_dataset = PascalVOCDataset(
+            images_path=IMG_DIR, 
+            labels_path=LABEL_DIR, 
+            csv_path='/content/pascalvoc-yolo/test.csv', 
+            transform=transform # verif si besoin de transform
         )
     
     train_loader = DataLoader(
@@ -103,18 +115,18 @@ def main():
         shuffle=True,
         drop_last=True
     )
-
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=BATCH_SIZE,
-        num_workers=NUM_WORKERS,
-        pin_memory=PIN_MEMORY,
-        shuffle=False,
-        drop_last=True
-    )
+    if VALID_METRICS:
+        test_loader = DataLoader(
+            dataset=test_dataset,
+            batch_size=BATCH_SIZE,
+            num_workers=NUM_WORKERS,
+            pin_memory=PIN_MEMORY,
+            shuffle=False,
+            drop_last=True
+        )
 
     if LOAD_MODEL:
-        load_checkpoint(torch.load(LOAD_MODEL_FILE), model, optimizer)
+        load_checkpoint(torch.load(SAVE_MODEL_FILE), model, optimizer)
 
     for epoch in range(EPOCHS):
         #===========#
@@ -130,22 +142,41 @@ def main():
         #===========#
         #   VALID   #
         #===========#
-        model.eval()
-        with torch.no_grad():
-            prediction_boxes, target_boxes = get_bboxes(
-                test_loader, model, iou_threshold=0.5, threshold=0.4
-            )
-            val_mAP = mean_average_precision(
-                prediction_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint"
-            )
-        model.train()
+        if VALID_METRICS:
+            model.eval()
+            with torch.no_grad():
+                prediction_boxes, target_boxes = get_bboxes(
+                    test_loader, model, iou_threshold=0.5, threshold=0.4
+                )
+                val_mAP = mean_average_precision(
+                    prediction_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint"
+                )
+            model.train()
 
         #=============#
         #   METRICS   #
         #=============#
         print(f"Train mAP: {train_mAP}")
-        print(f"Validation mAP: {val_mAP}")
-        train_epoch(train_loader, model, optimizer, loss_fn)
+        train_mAP_hist.append(train_mAP)
+        if VALID_METRICS: 
+            print(f"Validation mAP: {val_mAP}")
+            valid_mAP_hist.append(val_mAP)
+        train_epoch(train_loader, model, optimizer, loss_fn, loss_hist)
+
+    # Print metrics
+    plt.plot(np.ndarray(train_mAP_hist))
+    plt.plot(np.ndarray(valid_mAP_hist))
+    plt.xlabel('Epoch')
+    plt.ylabel('mAP')
+    plt.title('mAP vs Epoch')
+    plt.legend(['train', 'validation'])
+    plt.show()
+
+    plt.plot(np.ndarray(loss_hist))
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Loss vs Epoch')
+    plt.show()
 
     if SAVE_MODEL:
         checkpoint = {
