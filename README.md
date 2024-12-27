@@ -36,9 +36,9 @@ This was for me the hardest part about the project but ended up being an interes
 
 At the moment I don't have access to the hardware necessary to train YOLO as it was done back in 2017. Detailed steps from the paper are described in the *training* folder README. Briefly, training was done in several times. First the feature extractor part of the model consisting in the first 20 layers, an average pooling layer and a fully connected one was trained on ImageNet (224x224) resolution. Then the weights were transfered to the full model and trained on Pascal-VOC (448x448).  
 
-The feature extractor training lasted one week on a Titan X GPU. A quicker solution I aim at implementing and descibed on this [blogpost](https://medium.com/@m.khan/implementing-yolo-using-resnet-as-feature-extractor-5857f9da5014) is to use a pretrained resnet-50 as the feature extractor and train the YOLO classfier head with Pascal-VOC.  
+The feature extractor training lasted one week on a Titan X GPU. A quicker solution I aim at implementing and descibed on this [blogpost](https://medium.com/@m.khan/implementing-yolo-using-resnet-as-feature-extractor-5857f9da5014) is to use a pretrained resnet-50 as the feature extractor and train the YOLO classifier head with Pascal-VOC.  
 
-This approach will be studied in an other repo as I want to keep this one as a "clean" YOLO v1 implementation, true to the original. Nonetheless, the implementation was checked by overfitting a 100 example sample from the Pascal-VOC dataset.
+This approach is studied in the *training* folder. Nonetheless, the implementation of the "clean" YOLO (true to the original) was checked by overfitting a 100 example sample from the Pascal-VOC dataset.
 
 
 
