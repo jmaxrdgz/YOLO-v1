@@ -1,7 +1,7 @@
 # YOLO's training 
 #### Roadmap to fit the paper's training 
 
-*Training will be performed on Google Colab using the free GPU T4 (because students' budgets can barely afford the "G" in GPU).*
+*Training will be performed on Google Colab using the free GPU T4 (because students' budgets can barely afford the "G" in GPU) and pretrained resnet-50 backbone instead of the original backbone.*
 
 First step was to test if the code was running properly. I trained it on 100 epochs with the "100examples" csv file. It overfitted succesfully.
 
